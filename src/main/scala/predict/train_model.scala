@@ -41,6 +41,7 @@ object train_model {
     normalizer.fit(trainData) //Collect training data statistics
     trainData.reset()
 
+
     //Use previously collected statistics to normalize on-the-fly. Each DataSet returned by 'trainData' iterator will be normalized
     trainData.setPreProcessor(normalizer)
     // Test Data

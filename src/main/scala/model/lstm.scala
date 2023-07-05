@@ -12,16 +12,16 @@ import org.nd4j.linalg.lossfunctions.LossFunctions
 
 class lstm {
   def MultiLayerNetwork(): MultiLayerNetwork ={
-    val seed = 12345
-    val learningRate = 0.15
+    val seed = 11111
+    val learningRate = 0.001
     val numInputs = 7
-    val lstm1Size = 50
-    val lstm2Size = 100
+    val lstm1Size = 256
+    val lstm2Size = 256
     val numOutputs = 1
 
     val conf = new NeuralNetConfiguration.Builder()
       .seed(seed)
-      .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
+//      .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
       .activation(Activation.TANH)
       .weightInit(WeightInit.XAVIER)
       .updater(new Nesterovs(learningRate, 0.9))

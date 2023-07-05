@@ -30,26 +30,26 @@ object predict {
 
     // Training Data
     val reader = new CSVSequenceRecordReader()
-    reader.initialize(new NumberedFileInputSplit(s"${trainingFiles.getAbsolutePath}/%d.csv", 0, trainSize))
+    reader.initialize(new NumberedFileInputSplit(s"${trainingFiles.getAbsolutePath}/%d.csv", 1000, trainSize))
 
     val trainData = new SequenceRecordReaderDataSetIterator(reader, miniBatchSize, numPossibleLabels, labelIndex, regression)
 
+    //Use previously collected statistics to normalize on-the-fly. Each DataSet returned by 'trainData' iterator will be normalized
     //Normalize the training data
     val normalizer = new NormalizerStandardize()
+    normalizer.fitLabel(true)
     normalizer.fit(trainData) //Collect training data statistics
     trainData.reset()
 
     //Use previously collected statistics to normalize on-the-fly. Each DataSet returned by 'trainData' iterator will be normalized
-    trainData.setPreProcessor(normalizer);
-
+    trainData.setPreProcessor(normalizer)
     // Test Data
     val reader1 = new CSVSequenceRecordReader()
-    reader1.initialize(new NumberedFileInputSplit(s"${testFiles.getAbsolutePath}/%d.csv", 0, testSize))
+    reader1.initialize(new NumberedFileInputSplit(s"${testFiles.getAbsolutePath}/%d.csv", 0, testSize-500))
 
     val testData = new SequenceRecordReaderDataSetIterator(reader1, miniBatchSize, numPossibleLabels, labelIndex, regression)
 
-    //Use previously collected statistics to normalize on-the-fly. Each DataSet returned by 'trainData' iterator will be normalized
-    testData.setPreProcessor(normalizer); //Note that we are using the exact same normalization process as the training data
+    testData.setPreProcessor(normalizer)
 
     val net = new lstm().MultiLayerNetwork()
 
@@ -68,43 +68,48 @@ object predict {
       val evaluation: RegressionEvaluation = net.evaluateRegression(testData)
       println(s"======== EPOCH ${i} ========")
       println(evaluation.stats())
+
       trainData.reset()
       testData.reset()
 
-      var predicts: Array[Double] = Array()
-      var actuals: Array[Double] = Array()
+      net.rnnClearPreviousState()
+      if (i % 50 == 0) {
 
-      while (trainData.hasNext) {
-        val nextTestPoint = trainData.next
-        val nextTestPointFeatures = nextTestPoint.getFeatures
-        val predictionNextTestPoint: INDArray = net.output(nextTestPointFeatures) //net.rnnTimeStep(nextTestPointFeatures) // net.output(nextTestPointFeatures)
+        var predicts: Array[Double] = Array()
+        var actuals: Array[Double] = Array()
 
-        val nextTestPointLabels = nextTestPoint.getLabels
-        normalizer.revert(nextTestPoint) // revert the normalization of this test point
-        println(s"Test point no.: ${nextTestPointFeatures} \n" +
-          s"Prediction is: ${predictionNextTestPoint} \n" +
-          s"Actual value is: ${nextTestPointLabels} \n")
-        predicts = predicts :+ predictionNextTestPoint.getDouble(0L)
-        actuals = actuals :+ nextTestPointLabels.getDouble(0L)
-      }
+        while (trainData.hasNext && i % 50 == 0) {
+          val nextTestPoint = trainData.next
+          val nextTestPointFeatures = nextTestPoint.getFeatures
+          val predictionNextTestPoint = net.output(nextTestPointFeatures)
 
-      // visualize test data / predictions
-      while (testData.hasNext) {
-        val nextTestPoint = testData.next
-        val nextTestPointFeatures = nextTestPoint.getFeatures
-        val predictionNextTestPoint: INDArray = net.output(nextTestPointFeatures, true) //net.rnnTimeStep(nextTestPointFeatures) // net.output(nextTestPointFeatures)
+          val nextTestPointLabels = nextTestPoint.getLabels
+          normalizer.revert(nextTestPoint)
+          normalizer.revertLabels(predictionNextTestPoint)
+          println(s"Test point no.: ${nextTestPointFeatures} \n" +
+            s"Prediction is: ${predictionNextTestPoint} \n" +
+            s"Actual value is: ${nextTestPointLabels} \n")
+          predicts = predicts :+ predictionNextTestPoint.getDouble(0L)
+          actuals = actuals :+ nextTestPointLabels.getDouble(0L)
+        }
 
-        val nextTestPointLabels = nextTestPoint.getLabels
-        normalizer.revert(nextTestPoint) // revert the normalization of this test point
-        predicts = predicts :+ predictionNextTestPoint.getDouble(0L)
-        actuals = actuals :+ nextTestPointLabels.getDouble(0L)
-      }
-      if (i % 10 == 0)
+        // visualize test data / predictions
+        while (testData.hasNext) {
+          val nextTestPoint = testData.next
+          val nextTestPointFeatures = nextTestPoint.getFeatures
+          val predictionNextTestPoint = net.output(nextTestPointFeatures) //net.rnnTimeStep(nextTestPointFeatures) // net.output(nextTestPointFeatures)
+
+          val nextTestPointLabels = nextTestPoint.getLabels
+          normalizer.revert(nextTestPoint) // revert the normalization of this test point
+          normalizer.revertLabels(predictionNextTestPoint)
+          predicts = predicts :+ predictionNextTestPoint.getDouble(0L)
+          actuals = actuals :+ nextTestPointLabels.getDouble(0L)
+        }
         PlotUtil.plot(predicts, actuals, s"Test Run", i)
 
-      testData.reset()
-      trainData.reset()
-      net.rnnClearPreviousState()
+        testData.reset()
+        trainData.reset()
+      }
     }
   }
 }

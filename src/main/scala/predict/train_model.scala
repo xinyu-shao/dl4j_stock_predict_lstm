@@ -34,15 +34,19 @@ object train_model {
 
     val trainData = new SequenceRecordReaderDataSetIterator(reader, miniBatchSize, numPossibleLabels, labelIndex, regression)
 
-    //Use previously collected statistics to normalize on-the-fly. Each DataSet returned by 'trainData' iterator will be normalized
     //Normalize the training data
     val normalizer = new NormalizerStandardize()
     normalizer.fitLabel(true)
     normalizer.fit(trainData) //Collect training data statistics
     trainData.reset()
 
+    normalizer.save(
+      new File(basePath.getAbsolutePath + "/model/a"),
+      new File(basePath.getAbsolutePath + "/model/b"),
+      new File(basePath.getAbsolutePath + "/model/c"),
+      new File(basePath.getAbsolutePath + "/model/d")
+    )
 
-    //Use previously collected statistics to normalize on-the-fly. Each DataSet returned by 'trainData' iterator will be normalized
     trainData.setPreProcessor(normalizer)
     // Test Data
     val reader1 = new CSVSequenceRecordReader()
@@ -54,7 +58,6 @@ object train_model {
 
     val net = new lstm().MultiLayerNetwork()
 
-    //Initialize the user interface backend
     val uiServer = UIServer.getInstance()
     val statsStorage = new InMemoryStatsStorage()
     uiServer.attach(statsStorage)
@@ -94,7 +97,7 @@ object train_model {
           actuals = actuals :+ nextTestPointLabels.getDouble(0L)
         }
 
-        // visualize test data / predictions
+        // visualize  predictions
         while (testData.hasNext) {
           val nextTestPoint = testData.next
           val nextTestPointFeatures = nextTestPoint.getFeatures

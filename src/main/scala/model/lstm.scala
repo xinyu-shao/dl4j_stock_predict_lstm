@@ -21,7 +21,7 @@ class lstm {
 
     val conf = new NeuralNetConfiguration.Builder()
       .seed(seed)
-//      .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
+      .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
       .activation(Activation.TANH)
       .weightInit(WeightInit.XAVIER)
       .updater(new Nesterovs(learningRate, 0.9))

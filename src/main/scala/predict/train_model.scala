@@ -15,7 +15,7 @@ import org.nd4j.linalg.dataset.api.preprocessor.{NormalizerMinMaxScaler, Normali
 
 import java.io.File
 
-object predict {
+object train_model {
   def main(args:Array[String]): Unit ={
     val basePath = new File("src/main/resources/data/")
     val trainingFiles = new File(basePath, "train/")
@@ -106,9 +106,10 @@ object predict {
           actuals = actuals :+ nextTestPointLabels.getDouble(0L)
         }
         PlotUtil.plot(predicts, actuals, s"Test Run", i)
-
+        net.save(new File(basePath.getAbsolutePath+"/model/"+i))
         testData.reset()
         trainData.reset()
+
       }
     }
   }

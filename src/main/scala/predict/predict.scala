@@ -21,36 +21,35 @@ object predict {
     val trainingFiles = new File(basePath, "train/")
     val testFiles = new File(basePath, "test/")
 
-    val trainSize = 11
-    val testSize = 4
+    val trainSize = 1271
+    val testSize = 544
     val miniBatchSize = 1
-    val numPossibleLables = -1
+    val numPossibleLabels = -1
+    val labelIndex = 0
     val regression = true
 
     // Training Data
-    val trainFeatures = new CSVSequenceRecordReader
-    trainFeatures.initialize(new NumberedFileInputSplit(s"${trainingFiles.getAbsolutePath + "/train_Feature/"}%d.csv", 0, trainSize - 1))
-    val trainLabels = new CSVSequenceRecordReader
-    trainLabels.initialize(new NumberedFileInputSplit(s"${trainingFiles.getAbsolutePath + "/train_label/"}%d.csv", 0, trainSize - 1))
-    val trainDataIter = new SequenceRecordReaderDataSetIterator(trainFeatures, trainLabels, miniBatchSize, numPossibleLables, regression)
+    val reader = new CSVSequenceRecordReader()
+    reader.initialize(new NumberedFileInputSplit(s"${trainingFiles.getAbsolutePath}/%d.csv", 0, trainSize))
+
+    val trainData = new SequenceRecordReaderDataSetIterator(reader, miniBatchSize, numPossibleLabels, labelIndex, regression)
 
     //Normalize the training data
-    val normalizer = new NormalizerMinMaxScaler(0, 1)
-    normalizer.fitLabel(true)
-    normalizer.fit(trainDataIter) //Collect training data statistics
-    trainDataIter.reset()
+    val normalizer = new NormalizerStandardize()
+    normalizer.fit(trainData) //Collect training data statistics
+    trainData.reset()
 
-    // ----- Load the test data -----
-    //Same process as for the training data.
-    val testFeatures = new CSVSequenceRecordReader
-    testFeatures.initialize(new NumberedFileInputSplit(s"${testFiles.getAbsolutePath + "/test_Feature/"}%d.csv", 0, testSize - 1))
-    val testLabels = new CSVSequenceRecordReader
-    testLabels.initialize(new NumberedFileInputSplit(s"${testFiles.getAbsolutePath + "/test_label/"}%d.csv", 0, testSize - 1))
+    //Use previously collected statistics to normalize on-the-fly. Each DataSet returned by 'trainData' iterator will be normalized
+    trainData.setPreProcessor(normalizer);
 
-    val testDataIter = new SequenceRecordReaderDataSetIterator(testFeatures, testLabels, miniBatchSize, -1, true)
+    // Test Data
+    val reader1 = new CSVSequenceRecordReader()
+    reader1.initialize(new NumberedFileInputSplit(s"${testFiles.getAbsolutePath}/%d.csv", 0, testSize))
 
-    trainDataIter.setPreProcessor(normalizer)
-    testDataIter.setPreProcessor(normalizer)
+    val testData = new SequenceRecordReaderDataSetIterator(reader1, miniBatchSize, numPossibleLabels, labelIndex, regression)
+
+    //Use previously collected statistics to normalize on-the-fly. Each DataSet returned by 'trainData' iterator will be normalized
+    testData.setPreProcessor(normalizer); //Note that we are using the exact same normalization process as the training data
 
     val net = new lstm().MultiLayerNetwork()
 
@@ -62,21 +61,21 @@ object predict {
 
     net.addListeners(new ScoreIterationListener(100))
 
-    val nEpochs = 1
+    val nEpochs = 200
     for (i <- 0 to nEpochs) {
-      net.fit(trainDataIter)
+      net.fit(trainData)
       //Evaluate on the test set:
-      val evaluation: RegressionEvaluation = net.evaluateRegression(testDataIter)
+      val evaluation: RegressionEvaluation = net.evaluateRegression(testData)
       println(s"======== EPOCH ${i} ========")
       println(evaluation.stats())
-      trainDataIter.reset()
-      testDataIter.reset()
+      trainData.reset()
+      testData.reset()
 
       var predicts: Array[Double] = Array()
       var actuals: Array[Double] = Array()
 
-      while (trainDataIter.hasNext) {
-        val nextTestPoint = trainDataIter.next
+      while (trainData.hasNext) {
+        val nextTestPoint = trainData.next
         val nextTestPointFeatures = nextTestPoint.getFeatures
         val predictionNextTestPoint: INDArray = net.output(nextTestPointFeatures) //net.rnnTimeStep(nextTestPointFeatures) // net.output(nextTestPointFeatures)
 
@@ -85,26 +84,26 @@ object predict {
         println(s"Test point no.: ${nextTestPointFeatures} \n" +
           s"Prediction is: ${predictionNextTestPoint} \n" +
           s"Actual value is: ${nextTestPointLabels} \n")
-        predicts = predicts :+ predictionNextTestPoint.getDouble(6L)
-        actuals = actuals :+ nextTestPointLabels.getDouble(6L)
+        predicts = predicts :+ predictionNextTestPoint.getDouble(0L)
+        actuals = actuals :+ nextTestPointLabels.getDouble(0L)
       }
 
       // visualize test data / predictions
-      while (testDataIter.hasNext) {
-        val nextTestPoint = testDataIter.next
+      while (testData.hasNext) {
+        val nextTestPoint = testData.next
         val nextTestPointFeatures = nextTestPoint.getFeatures
         val predictionNextTestPoint: INDArray = net.output(nextTestPointFeatures, true) //net.rnnTimeStep(nextTestPointFeatures) // net.output(nextTestPointFeatures)
 
         val nextTestPointLabels = nextTestPoint.getLabels
         normalizer.revert(nextTestPoint) // revert the normalization of this test point
-        predicts = predicts :+ predictionNextTestPoint.getDouble(6L)
-        actuals = actuals :+ nextTestPointLabels.getDouble(6L)
+        predicts = predicts :+ predictionNextTestPoint.getDouble(0L)
+        actuals = actuals :+ nextTestPointLabels.getDouble(0L)
       }
       if (i % 10 == 0)
         PlotUtil.plot(predicts, actuals, s"Test Run", i)
 
-      testDataIter.reset()
-      trainDataIter.reset()
+      testData.reset()
+      trainData.reset()
       net.rnnClearPreviousState()
     }
   }

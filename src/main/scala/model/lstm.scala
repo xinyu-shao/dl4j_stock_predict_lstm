@@ -14,7 +14,7 @@ class lstm {
   def MultiLayerNetwork(): MultiLayerNetwork ={
     val seed = 12345
     val learningRate = 0.15
-    val numInputs = 1
+    val numInputs = 7
     val lstm1Size = 50
     val lstm2Size = 100
     val numOutputs = 1

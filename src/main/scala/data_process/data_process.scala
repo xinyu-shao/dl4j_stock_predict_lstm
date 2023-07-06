@@ -3,31 +3,35 @@ package data_process
 import java.io.{BufferedWriter, File, FileWriter}
 
 object data_process {
+
+  val date = 7
+  val basePath = new File("src/main/resources/data/")
+  val trainingFiles = new File(basePath, "train/")
+  val testFiles = new File(basePath, "test/")
+
+  val inputString = new File(basePath, "yahoo_stock.csv")
   def main(args: Array[String]): Unit = {
     generate_data()
   }
-  def generate_data(): Unit ={
-   val basePath = new File("src/main/resources/data/")
-   val trainingFiles = new File(basePath, "train/")
-   val testFiles = new File(basePath, "test/")
 
-   val inputString = new File(basePath, "yahoo_stock.csv")
-   val Features: List[String] = getFrature(inputString.getAbsolutePath).toList
-   val label: List[String] = getLabel(inputString.getAbsolutePath).toList
+  def generate_data(): Unit = {
 
-    val Features_week = Features.sliding(7).toList
-    val label_week = label.drop(8)
+    val Features: List[String] = getFrature(inputString.getAbsolutePath).toList
+    val label: List[String] = getLabel(inputString.getAbsolutePath).toList
+
+    val Features_week = Features.sliding(date).toList
+    val label_week = label.drop(date + 1)
     val data = Features_week zip label_week
 
-   val numExamples = data.length
-   val splitPos = math.ceil(numExamples * 0.7).toInt
-   val (train, test) = data splitAt splitPos
+    val numExamples = data.length
+    val splitPos = math.ceil(numExamples * 0.7).toInt
+    val (train, test) = data splitAt splitPos
 
     writeCSV(train, trainingFiles.getAbsolutePath)
     writeCSV(test, testFiles.getAbsolutePath)
   }
 
-  def writeCSV(batches: List[(List[String],String)], pathname: String) = {
+  def writeCSV(batches: List[(List[String], String)], pathname: String) = {
     for ((batch, index) <- batches.zipWithIndex) {
       val fileName = new File(pathname + s"/${index}.csv")
       val bw = new BufferedWriter(new FileWriter(fileName))
@@ -53,4 +57,4 @@ object data_process {
       cols = line.split(",").map(_.trim)
     } yield cols(5)
   }
-  }
+}

@@ -13,10 +13,10 @@ import org.nd4j.linalg.lossfunctions.LossFunctions
 class lstm {
   def MultiLayerNetwork(): MultiLayerNetwork ={
     val seed = 11111
-    val learningRate = 0.001
+    val learningRate = 0.15
     val numInputs = 7
-    val lstm1Size = 100
-    val lstm2Size = 100
+    val lstm1Size = 256
+    val lstm2Size = 256
     val numOutputs = 1
 
     val conf = new NeuralNetConfiguration.Builder()

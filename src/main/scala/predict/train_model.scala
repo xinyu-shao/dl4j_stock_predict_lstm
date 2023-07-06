@@ -65,7 +65,7 @@ object train_model {
 
     net.addListeners(new ScoreIterationListener(100))
 
-    val nEpochs = 200
+    val nEpochs = 2000
     for (i <- 0 to nEpochs) {
       net.fit(trainData)
       //Evaluate on the test set:
@@ -77,7 +77,7 @@ object train_model {
       testData.reset()
 
       net.rnnClearPreviousState()
-      if (i % 50 == 0) {
+      if (i % 100 == 0) {
 
         var predicts: Array[Double] = Array()
         var actuals: Array[Double] = Array()
@@ -101,6 +101,7 @@ object train_model {
         while (testData.hasNext) {
           val nextTestPoint = testData.next
           val nextTestPointFeatures = nextTestPoint.getFeatures
+
           val predictionNextTestPoint = net.output(nextTestPointFeatures) //net.rnnTimeStep(nextTestPointFeatures) // net.output(nextTestPointFeatures)
 
           val nextTestPointLabels = nextTestPoint.getLabels

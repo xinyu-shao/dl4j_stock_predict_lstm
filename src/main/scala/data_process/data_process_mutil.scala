@@ -16,8 +16,8 @@ object data_process_mutil {
     val Features: List[Array[String]] = getFrature(inputString.getAbsolutePath).toList
     val label: List[String] = getLabel(inputString.getAbsolutePath).toList
 
-    val Features_week = Features.sliding(30).toList
-    val label_week = label.drop(31).sliding(5).toList
+    val Features_week = Features.sliding(7).toList
+    val label_week = label.drop(8).sliding(1).toList
     val numExamples = Features_week.length
     val splitPos = math.ceil(numExamples * 0.7).toInt
 
@@ -43,17 +43,6 @@ object data_process_mutil {
         bw.newLine()
       }
 
-//      for(i <- 0 to 4){
-//        for (a <- batch) {
-//          count -= 1
-//          bw.write(a(i))
-//          if(count > 0) {
-//            bw.write(",")
-//          } else
-//            count = 30
-//        }
-//        bw.newLine()
-//      }
       bw.close
     }
   }
@@ -62,7 +51,8 @@ object data_process_mutil {
     for ((batch, index) <- batches.zipWithIndex) {
       val fileName = new File(pathname + s"${index}.csv")
       val bw = new BufferedWriter(new FileWriter(fileName))
-      for(a <- batch){
+
+      for (a <- batch){
         bw.write(a)
         bw.newLine()
       }

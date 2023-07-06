@@ -16,7 +16,7 @@ object data_process {
 
   def generate_data(): Unit = {
 
-    val Features: List[Array[String]] = getFrature(inputString.getAbsolutePath).toList
+    val Features = getFrature(inputString.getAbsolutePath).toList
     val label: List[String] = getLabel(inputString.getAbsolutePath).toList
 
     val Features_week = Features.sliding(date).toList
@@ -31,14 +31,12 @@ object data_process {
     writeCSV(test, testFiles.getAbsolutePath)
   }
 
-  def writeCSV(batches: List[(List[Array[String]], String)], pathname: String) = {
+  def writeCSV(batches: List[(List[String], String)], pathname: String) = {
     for ((batch, index) <- batches.zipWithIndex) {
       val fileName = new File(pathname + s"/${index}.csv")
       val bw = new BufferedWriter(new FileWriter(fileName))
       bw.write(batch._2 + ",")
-      for(a <- batch._1){
 
-      }
       bw.write(batch._1.mkString(","))
       bw.newLine()
       bw.close
@@ -50,7 +48,7 @@ object data_process {
     for {
       line <- bufferedSource.getLines.drop(1)
       cols = line.split(",").map(_.trim).dropRight(1)
-    } yield cols
+    } yield cols(3)
   }
 
   def getLabel(fileName: String) = {

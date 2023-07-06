@@ -22,7 +22,7 @@ object train_model {
     val testFiles = new File(basePath, "test/")
 
     val trainSize = 1271
-    val testSize = 544
+    val testSize = 543
     val miniBatchSize = 1
     val numPossibleLabels = -1
     val labelIndex = 0
@@ -30,7 +30,7 @@ object train_model {
 
     // Training Data
     val reader = new CSVSequenceRecordReader()
-    reader.initialize(new NumberedFileInputSplit(s"${trainingFiles.getAbsolutePath}/%d.csv", 1000, trainSize))
+    reader.initialize(new NumberedFileInputSplit(s"${trainingFiles.getAbsolutePath}/%d.csv", trainSize - 365, trainSize))
 
     val trainData = new SequenceRecordReaderDataSetIterator(reader, miniBatchSize, numPossibleLabels, labelIndex, regression)
 
@@ -50,7 +50,7 @@ object train_model {
     trainData.setPreProcessor(normalizer)
     // Test Data
     val reader1 = new CSVSequenceRecordReader()
-    reader1.initialize(new NumberedFileInputSplit(s"${testFiles.getAbsolutePath}/%d.csv", 0, testSize-500))
+    reader1.initialize(new NumberedFileInputSplit(s"${testFiles.getAbsolutePath}/%d.csv", 0, 30))
 
     val testData = new SequenceRecordReaderDataSetIterator(reader1, miniBatchSize, numPossibleLabels, labelIndex, regression)
 
@@ -65,7 +65,7 @@ object train_model {
 
     net.addListeners(new ScoreIterationListener(100))
 
-    val nEpochs = 2000
+    val nEpochs = 500
     for (i <- 0 to nEpochs) {
       net.fit(trainData)
       //Evaluate on the test set:
@@ -75,9 +75,7 @@ object train_model {
 
       trainData.reset()
       testData.reset()
-
-      net.rnnClearPreviousState()
-      if (i % 100 == 0) {
+      if (i % 50 == 0) {
 
         var predicts: Array[Double] = Array()
         var actuals: Array[Double] = Array()
@@ -90,13 +88,16 @@ object train_model {
           val nextTestPointLabels = nextTestPoint.getLabels
           normalizer.revert(nextTestPoint)
           normalizer.revertLabels(predictionNextTestPoint)
-          println(s"Test point no.: ${nextTestPointFeatures} \n" +
-            s"Prediction is: ${predictionNextTestPoint} \n" +
-            s"Actual value is: ${nextTestPointLabels} \n")
+//          println(s"Test point no.: ${nextTestPointFeatures} \n" +
+//            s"Prediction is: ${predictionNextTestPoint} \n" +
+//            s"Actual value is: ${nextTestPointLabels} \n")
           predicts = predicts :+ predictionNextTestPoint.getDouble(0L)
           actuals = actuals :+ nextTestPointLabels.getDouble(0L)
         }
+        PlotUtil.plot(predicts, actuals, s"Train Run", i)
 
+        predicts = Array()
+        actuals = Array()
         // visualize  predictions
         while (testData.hasNext) {
           val nextTestPoint = testData.next
@@ -114,8 +115,8 @@ object train_model {
         net.save(new File(basePath.getAbsolutePath+"/model/"+i))
         testData.reset()
         trainData.reset()
-
       }
+      net.rnnClearPreviousState()
     }
   }
 }

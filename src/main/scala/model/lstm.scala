@@ -13,10 +13,11 @@ import org.nd4j.linalg.lossfunctions.LossFunctions
 class lstm {
   def MultiLayerNetwork(): MultiLayerNetwork ={
     val seed = 11111
-    val learningRate = 0.15
-    val numInputs = 7
-    val lstm1Size = 256
+    val learningRate = 0.001
+    val numInputs = 5
+    val lstm1Size = 128
     val lstm2Size = 256
+    val lstm3Size = 128
     val numOutputs = 1
 
     val conf = new NeuralNetConfiguration.Builder()
@@ -34,9 +35,13 @@ class lstm {
         .activation(Activation.TANH)
         .nIn(lstm1Size)
         .nOut(lstm2Size).build())
-      .layer(2, new RnnOutputLayer.Builder(LossFunctions.LossFunction.MSE)
-        .activation(Activation.IDENTITY)
+      .layer(2, new LSTM.Builder()
+        .activation(Activation.TANH)
         .nIn(lstm2Size)
+        .nOut(lstm3Size).build())
+      .layer(3, new RnnOutputLayer.Builder(LossFunctions.LossFunction.MSE)
+        .activation(Activation.IDENTITY)
+        .nIn(lstm3Size)
         .nOut(numOutputs).build())
       .build();
 

@@ -11,14 +11,14 @@ import org.nd4j.linalg.learning.config.Nesterovs
 import org.nd4j.linalg.lossfunctions.LossFunctions
 
 class lstm {
-  def MultiLayerNetwork(): MultiLayerNetwork ={
+  def MultiLayerNetwork(regression : Boolean): MultiLayerNetwork ={
     val seed = 11111
     val learningRate = 0.001
-    val numInputs = 5
+    val numInputs = 35
     val lstm1Size = 128
     val lstm2Size = 256
     val lstm3Size = 128
-    val numOutputs = 1
+    val numOutputs = if(regression)1 else 2
 
     val conf = new NeuralNetConfiguration.Builder()
       .seed(seed)

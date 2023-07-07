@@ -6,7 +6,7 @@ import org.jfree.chart.axis.{NumberAxis, NumberTickUnit}
 import org.jfree.chart.plot.PlotOrientation
 import org.jfree.data.xy.{XYSeries, XYSeriesCollection}
 
-object PlotUtil {
+class PlotUtil {
   def plot(predicts: Array[Double], actuals: Array[Double], name: String, epoch: Int): Unit = {
 
     val index = (0 until predicts.length).toList

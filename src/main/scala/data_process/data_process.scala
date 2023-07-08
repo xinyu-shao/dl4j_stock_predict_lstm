@@ -4,19 +4,19 @@ import java.io.{BufferedWriter, File, FileWriter}
 
 class data_process {
 
-  val date = 7
   val basePath = new File("src/main/resources/data/")
   val trainingFiles = new File(basePath, "train/")
   val testFiles = new File(basePath, "test/")
 
   val inputString = new File(basePath, "yahoo_stock.csv")
   def generate_data(mode: Boolean): Unit = {
+    val date = if(mode) 5 else 6
 
     val Features = getFrature(inputString.getAbsolutePath).toList
     val label: List[String] = getLabel(inputString.getAbsolutePath).toList
 
     val Features_week = Features.sliding(date).toList
-    val label_week = label.drop(date)
+    val label_week = label.drop(date - 1)
     val data = Features_week zip label_week
 
     val numExamples = data.length
@@ -24,8 +24,8 @@ class data_process {
     val (train, test) = data splitAt splitPos
 
     if(mode){
-      writeCSV(train, trainingFiles.getAbsolutePath)
-      writeCSV(test, testFiles.getAbsolutePath)
+      writeCSV(train, trainingFiles.getAbsolutePath, date)
+      writeCSV(test, testFiles.getAbsolutePath, date)
     }else{
       writeClassifyCSV(train, trainingFiles.getAbsolutePath)
       writeClassifyCSV(test, testFiles.getAbsolutePath)
@@ -33,15 +33,12 @@ class data_process {
 
   }
 
-  def writeCSV(batches: List[(List[Array[String]], String)], pathname: String) = {
+  def writeCSV(batches: List[(List[Array[String]], String)], pathname: String, date: Int) = {
     for ((batch, index) <- batches.zipWithIndex) {
       val fileName = new File(pathname + s"/${index}.csv")
       val bw = new BufferedWriter(new FileWriter(fileName))
       bw.write(batch._2 + ",")
-//
-//      bw.write(batch._1.mkString(","))
-//      bw.newLine()
-//      bw.close
+
       var count = date
       for(a <- batch._1){
         count -= 1
@@ -65,18 +62,15 @@ class data_process {
 
       bw.write(flag + ",")
 
-      var count = date
-      val pre = batch._1(1).clone()
-      for (a <- batch._1) {
-        for(i <- 0 to 4){
-          a(i) = (a(i).toDouble - pre(i).toDouble).toString
+      val pre = batch._1(0)
+      for(i <- 1 to 5) {
+        val data = batch._1(i)
+        for (j <- 0 to 4) {
+          val dif = (data(j).toDouble - pre(j).toDouble).toString
+          bw.write(dif)
+          if(j != 4 || i != 5)
+            bw.write(",")
         }
-        count -= 1
-        bw.write(a.mkString(","))
-        if (count > 0)
-          bw.write(",")
-        else
-          count = date
       }
       bw.newLine()
       bw.close()

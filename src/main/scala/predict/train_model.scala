@@ -2,15 +2,14 @@ package predict
 
 import lstm.plotting.PlotUtil
 import org.datavec.api.records.reader.impl.csv._
-import org.datavec.api.split.{FileSplit, NumberedFileInputSplit}
-import org.deeplearning4j.datasets.datavec.{RecordReaderDataSetIterator, SequenceRecordReaderDataSetIterator}
+import org.datavec.api.split.{NumberedFileInputSplit}
+import org.deeplearning4j.datasets.datavec.{ SequenceRecordReaderDataSetIterator}
 import model.lstm
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener
 import org.deeplearning4j.ui.api.UIServer
 import org.deeplearning4j.ui.stats.StatsListener
 import org.deeplearning4j.ui.storage.InMemoryStatsStorage
 import org.nd4j.evaluation.regression.RegressionEvaluation
-import org.nd4j.linalg.api.ndarray.INDArray
 import org.nd4j.linalg.dataset.api.preprocessor.{NormalizerMinMaxScaler, NormalizerStandardize}
 import data_process.data_process
 
@@ -22,12 +21,14 @@ object train_model {
     val trainingFiles = new File(basePath, "train/")
     val testFiles = new File(basePath, "test/")
 
-    val trainSize = 1000
-    val testSize = 543
+
+    val regression = true
+    val trainSize = 1200
+    val testSize = 90
     val miniBatchSize = 1
-    val numPossibleLabels = 2
     val labelIndex = 0
-    val regression = false
+
+    val numPossibleLabels = if(regression) -1 else 2
 
     new data_process().generate_data(regression)
 
@@ -37,10 +38,10 @@ object train_model {
 
     val trainData = new SequenceRecordReaderDataSetIterator(reader, miniBatchSize, numPossibleLabels, labelIndex, regression)
 
-    println(trainData.next())
+
     // Test Data
     val reader1 = new CSVSequenceRecordReader()
-    reader1.initialize(new NumberedFileInputSplit(s"${testFiles.getAbsolutePath}/%d.csv", 0, 500))
+    reader1.initialize(new NumberedFileInputSplit(s"${testFiles.getAbsolutePath}/%d.csv", 0, testSize))
 
     val testData = new SequenceRecordReaderDataSetIterator(reader1, miniBatchSize, numPossibleLabels, labelIndex, regression)
 
@@ -53,10 +54,10 @@ object train_model {
       trainData.reset()
 
       normalizer.save(
-        new File(basePath.getAbsolutePath + "/model/a"),
-        new File(basePath.getAbsolutePath + "/model/b"),
-        new File(basePath.getAbsolutePath + "/model/c"),
-        new File(basePath.getAbsolutePath + "/model/d")
+        new File(basePath.getAbsolutePath + "/regression_model/a"),
+        new File(basePath.getAbsolutePath + "/regression_model/b"),
+        new File(basePath.getAbsolutePath + "/regression_model/c"),
+        new File(basePath.getAbsolutePath + "/regression_model/d")
       )
 
       trainData.setPreProcessor(normalizer)
@@ -70,19 +71,22 @@ object train_model {
     uiServer.attach(statsStorage)
     net.setListeners(new StatsListener(statsStorage))
 
-    net.addListeners(new ScoreIterationListener(100))
+    if(regression)net.addListeners(new ScoreIterationListener(100))
 
     val nEpochs = 1000
     for (i <- 0 to nEpochs) {
       net.fit(trainData)
       //Evaluate on the test set:
-      val evaluation: RegressionEvaluation = net.evaluateRegression(testData)
       println(s"======== EPOCH ${i} ========")
-      println(evaluation.stats())
+      if(regression){
+        val evaluation: RegressionEvaluation = net.evaluateRegression(testData)
+        println(evaluation.stats())
+      }
 
       trainData.reset()
       testData.reset()
-      if (i % 50 == 0) {
+      net.rnnClearPreviousState()
+      if (i % 10 == 0) {
 
         var predicts: Array[Double] = Array()
         var actuals: Array[Double] = Array()
@@ -93,15 +97,23 @@ object train_model {
           val predictionNextTestPoint = net.output(nextTestPointFeatures)
 
           val nextTestPointLabels = nextTestPoint.getLabels
-          if(regression){
-            normalizer.revert(nextTestPoint)
+          if (regression) {
+            normalizer.revert(nextTestPoint) // revert the normalization of this test point
             normalizer.revertLabels(predictionNextTestPoint)
+//            println(
+//              //            s"Test point no.: ${nextTestPointFeatures} \n" +
+//              s"Prediction is: ${predictionNextTestPoint} \n" +
+//                s"Actual value is: ${nextTestPointLabels} \n")
+            predicts = predicts :+ predictionNextTestPoint.getDouble(0L)
+            actuals = actuals :+ nextTestPointLabels.getDouble(0L)
+          } else {
+            //            println(
+            //              s"Prediction is: ${predictionNextTestPoint} \n" +
+            //                s"Actual value is: ${nextTestPointLabels} \n")
+            val predict = if (predictionNextTestPoint.getDouble(0L) > 0.5) 1.0 else 0.0
+            predicts = predicts :+ predict
+            actuals = actuals :+ nextTestPointLabels.getDouble(0L)
           }
-//          println(s"Test point no.: ${nextTestPointFeatures} \n" +
-//            s"Prediction is: ${predictionNextTestPoint} \n" +
-//            s"Actual value is: ${nextTestPointLabels} \n")
-          predicts = predicts :+ predictionNextTestPoint.getDouble(0L)
-          actuals = actuals :+ nextTestPointLabels.getDouble(0L)
         }
         if (regression) {
           PlotUtil.plot(predicts, actuals, s"Test Run", i)
@@ -135,9 +147,9 @@ object train_model {
             predicts = predicts :+ predictionNextTestPoint.getDouble(0L)
             actuals = actuals :+ nextTestPointLabels.getDouble(0L)
           }else{
-            println(
-              s"Prediction is: ${predictionNextTestPoint} \n" +
-                s"Actual value is: ${nextTestPointLabels} \n")
+//            println(
+//              s"Prediction is: ${predictionNextTestPoint} \n" +
+//                s"Actual value is: ${nextTestPointLabels} \n")
             val predict = if(predictionNextTestPoint.getDouble(0L) > 0.5) 1.0 else 0.0
             predicts = predicts :+ predict
             actuals = actuals :+ nextTestPointLabels.getDouble(0L)
@@ -156,12 +168,14 @@ object train_model {
           println("精准度为：" + right.toDouble / predicts.length)
         }
 
-
-        net.save(new File(basePath.getAbsolutePath+"/model/"+i))
+        if(regression)
+          net.save(new File(basePath.getAbsolutePath+"/regression_model/"+i))
+        else
+          net.save(new File(basePath.getAbsolutePath+"/classify_model/"+i))
         testData.reset()
         trainData.reset()
       }
-      net.rnnClearPreviousState()
+        net.rnnClearPreviousState()
     }
   }
 }

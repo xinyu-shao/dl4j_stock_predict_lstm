@@ -1,17 +1,15 @@
-package predict
+package another
 
 import lstm.plotting.PlotUtil
-import org.datavec.api.records.reader.impl.csv._
-import org.datavec.api.split.{FileSplit, NumberedFileInputSplit}
-import org.deeplearning4j.datasets.datavec.{RecordReaderDataSetIterator, SequenceRecordReaderDataSetIterator}
 import model.lstm
+import org.datavec.api.records.reader.impl.csv._
+import org.datavec.api.split.NumberedFileInputSplit
+import org.deeplearning4j.datasets.datavec.SequenceRecordReaderDataSetIterator
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener
 import org.deeplearning4j.ui.api.UIServer
 import org.deeplearning4j.ui.stats.StatsListener
 import org.deeplearning4j.ui.storage.InMemoryStatsStorage
-import org.nd4j.evaluation.regression.RegressionEvaluation
-import org.nd4j.linalg.api.ndarray.INDArray
-import org.nd4j.linalg.dataset.api.preprocessor.{NormalizerMinMaxScaler, NormalizerStandardize}
+import org.nd4j.linalg.dataset.api.preprocessor.NormalizerMinMaxScaler
 
 import java.io.File
 
@@ -53,7 +51,7 @@ object train_mutil_model {
     trainData.setPreProcessor(normalizer)
     testData.setPreProcessor(normalizer)
 
-    val net = new lstm().MultiLayerNetwork()
+    val net = new lstm().MultiLayerNetwork(regression)
 
     //Initialize the user interface backend
     val uiServer = UIServer.getInstance()

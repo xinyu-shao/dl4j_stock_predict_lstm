@@ -15,8 +15,9 @@ class data_process {
     val Features = getFrature(inputString.getAbsolutePath).toList
     val label: List[String] = getLabel(inputString.getAbsolutePath).toList
 
-    val Features_week = Features.sliding(date).toList
-    val label_week = label.drop(date - 1)
+    val Features_week = Features.drop(1).sliding(date).toList
+    val label_week = label.drop(date - 1).dropRight(1)
+
     val data = Features_week zip label_week
 
     val numExamples = data.length
@@ -39,14 +40,13 @@ class data_process {
       val bw = new BufferedWriter(new FileWriter(fileName))
       bw.write(batch._2 + ",")
 
-      var count = date
-      for(a <- batch._1){
-        count -= 1
-        bw.write(a.mkString(","))
-        if(count > 0)
-          bw.write(",")
-        else
-          count = date
+      for (i <- 0 to 4) {
+        val data = batch._1(i)
+        for (j <- 1 to 5) {
+          bw.write(data(j))
+          if (j != 5 || i != 4)
+            bw.write(",")
+        }
       }
       bw.newLine()
       bw.close()
@@ -58,6 +58,7 @@ class data_process {
     for ((batch, index) <- batches.zipWithIndex) {
       val fileName = new File(pathname + s"/${index}.csv")
       val bw = new BufferedWriter(new FileWriter(fileName))
+
       val flag = if(batch._2.toDouble - batch._1.last(3).toDouble > 0 ) 1 else 0
 
       bw.write(flag + ",")
@@ -65,10 +66,10 @@ class data_process {
       val pre = batch._1(0)
       for(i <- 1 to 5) {
         val data = batch._1(i)
-        for (j <- 0 to 4) {
+        for (j <- 1 to 5) {
           val dif = (data(j).toDouble - pre(j).toDouble).toString
           bw.write(dif)
-          if(j != 4 || i != 5)
+          if(j != 5 || i != 5)
             bw.write(",")
         }
       }
@@ -89,6 +90,6 @@ class data_process {
     for {
       line <- bufferedSource.getLines.drop(1)
       cols = line.split(",").map(_.trim)
-    } yield cols(5)
+    } yield cols(3)
   }
 }

@@ -22,7 +22,7 @@ object train_model {
     val testFiles = new File(basePath, "test/")
 
 
-    val regression = true
+    val regression = false
     val trainSize = 1200
     val testSize = 90
     val miniBatchSize = 1
@@ -86,7 +86,7 @@ object train_model {
       trainData.reset()
       testData.reset()
       net.rnnClearPreviousState()
-      if (i % 10 == 0) {
+      if (i % 50 == 0) {
 
         var predicts: Array[Double] = Array()
         var actuals: Array[Double] = Array()

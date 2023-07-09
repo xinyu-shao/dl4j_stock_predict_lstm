@@ -2,9 +2,8 @@ package predict
 
 import lstm.plotting.PlotUtil
 import org.datavec.api.records.reader.impl.csv._
-import org.datavec.api.split.{NumberedFileInputSplit}
-import org.deeplearning4j.datasets.datavec.{ SequenceRecordReaderDataSetIterator}
-import model.lstm
+import org.datavec.api.split.NumberedFileInputSplit
+import org.deeplearning4j.datasets.datavec.SequenceRecordReaderDataSetIterator
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener
 import org.deeplearning4j.ui.api.UIServer
 import org.deeplearning4j.ui.stats.StatsListener
@@ -12,21 +11,23 @@ import org.deeplearning4j.ui.storage.InMemoryStatsStorage
 import org.nd4j.evaluation.regression.RegressionEvaluation
 import org.nd4j.linalg.dataset.api.preprocessor.{NormalizerMinMaxScaler, NormalizerStandardize}
 import data_process.data_process
+import model.model
+import org.deeplearning4j.nn.multilayer.MultiLayerNetwork
 
 import java.io.File
 
 object train_model {
+  val basePath = new File("src/main/resources/data/")
+  val trainingFiles = new File(basePath, "train/")
+  val testFiles = new File(basePath, "test/")
+
+
+  val regression = false
+  val trainSize = 1200
+  val testSize = 500
+  val miniBatchSize = 1
+  val labelIndex = 0
   def main(args:Array[String]): Unit ={
-    val basePath = new File("src/main/resources/data/")
-    val trainingFiles = new File(basePath, "train/")
-    val testFiles = new File(basePath, "test/")
-
-
-    val regression = false
-    val trainSize = 1200
-    val testSize = 90
-    val miniBatchSize = 1
-    val labelIndex = 0
 
     val numPossibleLabels = if(regression) -1 else 2
 
@@ -64,7 +65,7 @@ object train_model {
       testData.setPreProcessor(normalizer)
     }
 
-    val net = new lstm().MultiLayerNetwork(regression)
+    val net = new model().get_model(regression)
 
     val uiServer = UIServer.getInstance()
     val statsStorage = new InMemoryStatsStorage()
@@ -74,6 +75,7 @@ object train_model {
     if(regression)net.addListeners(new ScoreIterationListener(100))
 
     val nEpochs = 1000
+    val judge = if(regression) 50 else 5
     for (i <- 0 to nEpochs) {
       net.fit(trainData)
       //Evaluate on the test set:
@@ -86,7 +88,7 @@ object train_model {
       trainData.reset()
       testData.reset()
       net.rnnClearPreviousState()
-      if (i % 50 == 0) {
+      if (i % judge == 0) {
 
         var predicts: Array[Double] = Array()
         var actuals: Array[Double] = Array()
@@ -100,16 +102,10 @@ object train_model {
           if (regression) {
             normalizer.revert(nextTestPoint) // revert the normalization of this test point
             normalizer.revertLabels(predictionNextTestPoint)
-//            println(
-//              //            s"Test point no.: ${nextTestPointFeatures} \n" +
-//              s"Prediction is: ${predictionNextTestPoint} \n" +
-//                s"Actual value is: ${nextTestPointLabels} \n")
+
             predicts = predicts :+ predictionNextTestPoint.getDouble(0L)
             actuals = actuals :+ nextTestPointLabels.getDouble(0L)
           } else {
-            //            println(
-            //              s"Prediction is: ${predictionNextTestPoint} \n" +
-            //                s"Actual value is: ${nextTestPointLabels} \n")
             val predict = if (predictionNextTestPoint.getDouble(0L) > 0.5) 1.0 else 0.0
             predicts = predicts :+ predict
             actuals = actuals :+ nextTestPointLabels.getDouble(0L)
@@ -147,9 +143,6 @@ object train_model {
             predicts = predicts :+ predictionNextTestPoint.getDouble(0L)
             actuals = actuals :+ nextTestPointLabels.getDouble(0L)
           }else{
-//            println(
-//              s"Prediction is: ${predictionNextTestPoint} \n" +
-//                s"Actual value is: ${nextTestPointLabels} \n")
             val predict = if(predictionNextTestPoint.getDouble(0L) > 0.5) 1.0 else 0.0
             predicts = predicts :+ predict
             actuals = actuals :+ nextTestPointLabels.getDouble(0L)
@@ -177,5 +170,40 @@ object train_model {
       }
         net.rnnClearPreviousState()
     }
+  }
+  def test(Data:SequenceRecordReaderDataSetIterator, net: MultiLayerNetwork, normalizer:NormalizerStandardize)={
+    var predicts: Array[Double] = Array()
+    var actuals: Array[Double] = Array()
+
+    while (Data.hasNext) {
+      val nextTestPoint = Data.next
+      val nextTestPointFeatures = nextTestPoint.getFeatures
+      val predictionNextTestPoint = net.output(nextTestPointFeatures)
+
+      val nextTestPointLabels = nextTestPoint.getLabels
+      if (regression) {
+        normalizer.revert(nextTestPoint) // revert the normalization of this test point
+        normalizer.revertLabels(predictionNextTestPoint)
+
+        predicts = predicts :+ predictionNextTestPoint.getDouble(0L)
+        actuals = actuals :+ nextTestPointLabels.getDouble(0L)
+      } else {
+        val predict = if (predictionNextTestPoint.getDouble(0L) > 0.5) 1.0 else 0.0
+        predicts = predicts :+ predict
+        actuals = actuals :+ nextTestPointLabels.getDouble(0L)
+      }
+    }
+    if (regression) {
+      PlotUtil.plot(predicts, actuals, s"Test Run", i)
+    } else {
+      var right = 0
+      for ((a, b) <- predicts zip actuals) {
+        if (a == b) {
+          right += 1
+        }
+      }
+      println("精准度为：" + right.toDouble / predicts.length)
+    }
+    Data.reset()
   }
 }

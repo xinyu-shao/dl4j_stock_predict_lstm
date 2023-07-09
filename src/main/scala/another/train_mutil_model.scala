@@ -1,7 +1,7 @@
 package another
 
 import lstm.plotting.PlotUtil
-import model.lstm
+import model.model
 import org.datavec.api.records.reader.impl.csv._
 import org.datavec.api.split.NumberedFileInputSplit
 import org.deeplearning4j.datasets.datavec.SequenceRecordReaderDataSetIterator
@@ -51,7 +51,7 @@ object train_mutil_model {
     trainData.setPreProcessor(normalizer)
     testData.setPreProcessor(normalizer)
 
-    val net = new lstm().MultiLayerNetwork(regression)
+    val net = new model().get_model(regression)
 
     //Initialize the user interface backend
     val uiServer = UIServer.getInstance()

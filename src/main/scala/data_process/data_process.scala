@@ -7,10 +7,43 @@ class data_process {
   val basePath = new File("src/main/resources/data/")
   val trainingFiles = new File(basePath, "train/")
   val testFiles = new File(basePath, "test/")
+  val forcastData = new File("src/main/resources/data/forcastData")
 
-  val inputString = new File(basePath, "yahoo_stock.csv")
+
   def generate_data(mode: Boolean): Unit = {
-    val date = if(mode) 5 else 6
+
+    val inputString = new File(basePath, "yahoo_stock.csv")
+    val data = get_data(mode, inputString)
+
+    val numExamples = data.length
+    val splitPos = math.ceil(numExamples * 0.7).toInt
+    val (train, test) = data splitAt splitPos
+
+    if(mode){
+      writeCSV(train, trainingFiles.getAbsolutePath)
+      writeCSV(test, testFiles.getAbsolutePath)
+    }else{
+      writeClassifyCSV(train, trainingFiles.getAbsolutePath)
+      writeClassifyCSV(test, testFiles.getAbsolutePath)
+    }
+
+  }
+
+  def generate_test_data(mode: Boolean): Unit = {
+
+    val inputString = new File(basePath, "A.csv")
+
+    val data = get_data(mode, inputString)
+
+    if (mode) {
+      writeCSV(data, forcastData.getAbsolutePath)
+    } else {
+      writeClassifyCSV(data, forcastData.getAbsolutePath)
+    }
+
+  }
+  def get_data(mode: Boolean, inputString: File) ={
+    val date = if (mode) 5 else 6
 
     val Features = getFrature(inputString.getAbsolutePath).toList
     val label: List[String] = getLabel(inputString.getAbsolutePath).toList
@@ -19,22 +52,9 @@ class data_process {
     val label_week = label.drop(date - 1).dropRight(1)
 
     val data = Features_week zip label_week
-
-    val numExamples = data.length
-    val splitPos = math.ceil(numExamples * 0.7).toInt
-    val (train, test) = data splitAt splitPos
-
-    if(mode){
-      writeCSV(train, trainingFiles.getAbsolutePath, date)
-      writeCSV(test, testFiles.getAbsolutePath, date)
-    }else{
-      writeClassifyCSV(train, trainingFiles.getAbsolutePath)
-      writeClassifyCSV(test, testFiles.getAbsolutePath)
-    }
-
+    data
   }
-
-  def writeCSV(batches: List[(List[Array[String]], String)], pathname: String, date: Int) = {
+  def writeCSV(batches: List[(List[Array[String]], String)], pathname: String) = {
     for ((batch, index) <- batches.zipWithIndex) {
       val fileName = new File(pathname + s"/${index}.csv")
       val bw = new BufferedWriter(new FileWriter(fileName))

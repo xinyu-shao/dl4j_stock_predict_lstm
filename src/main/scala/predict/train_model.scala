@@ -21,7 +21,6 @@ object train_model {
   val trainingFiles = new File(basePath, "train/")
   val testFiles = new File(basePath, "test/")
 
-
   val regression = false
   val trainSize = 1200
   val testSize = 500
@@ -75,126 +74,55 @@ object train_model {
     if(regression)net.addListeners(new ScoreIterationListener(100))
 
     val nEpochs = 1000
-    val judge = if(regression) 50 else 5
+    val judge = if(regression) 100 else 10
     for (i <- 0 to nEpochs) {
       net.fit(trainData)
+      trainData.reset()
       //Evaluate on the test set:
+
       println(s"======== EPOCH ${i} ========")
       if(regression){
         val evaluation: RegressionEvaluation = net.evaluateRegression(testData)
         println(evaluation.stats())
+        testData.reset()
       }
-
-      trainData.reset()
-      testData.reset()
       net.rnnClearPreviousState()
       if (i % judge == 0) {
-
-        var predicts: Array[Double] = Array()
-        var actuals: Array[Double] = Array()
-
-        while (trainData.hasNext) {
-          val nextTestPoint = trainData.next
-          val nextTestPointFeatures = nextTestPoint.getFeatures
-          val predictionNextTestPoint = net.output(nextTestPointFeatures)
-
-          val nextTestPointLabels = nextTestPoint.getLabels
-          if (regression) {
-            normalizer.revert(nextTestPoint) // revert the normalization of this test point
-            normalizer.revertLabels(predictionNextTestPoint)
-
-            predicts = predicts :+ predictionNextTestPoint.getDouble(0L)
-            actuals = actuals :+ nextTestPointLabels.getDouble(0L)
-          } else {
-            val predict = if (predictionNextTestPoint.getDouble(0L) > 0.5) 1.0 else 0.0
-            predicts = predicts :+ predict
-            actuals = actuals :+ nextTestPointLabels.getDouble(0L)
-          }
-        }
-        if (regression) {
-          PlotUtil.plot(predicts, actuals, s"Test Run", i)
-        } else {
-          var right = 0
-          for ((a, b) <- predicts zip actuals) {
-            if (a == b) {
-              right += 1
-            }
-          }
-          println("精准度为：" + right.toDouble / predicts.length)
-        }
-
-        predicts = Array()
-        actuals = Array()
-        // visualize  predictions
-        while (testData.hasNext) {
-          val nextTestPoint = testData.next
-          val nextTestPointFeatures = nextTestPoint.getFeatures
-
-          val predictionNextTestPoint = net.output(nextTestPointFeatures) //net.rnnTimeStep(nextTestPointFeatures) // net.output(nextTestPointFeatures)
-
-          val nextTestPointLabels = nextTestPoint.getLabels
-          if(regression){
-            normalizer.revert(nextTestPoint) // revert the normalization of this test point
-            normalizer.revertLabels(predictionNextTestPoint)
-            println (
-              //            s"Test point no.: ${nextTestPointFeatures} \n" +
-              s"Prediction is: ${predictionNextTestPoint} \n" +
-                s"Actual value is: ${nextTestPointLabels} \n")
-            predicts = predicts :+ predictionNextTestPoint.getDouble(0L)
-            actuals = actuals :+ nextTestPointLabels.getDouble(0L)
-          }else{
-            val predict = if(predictionNextTestPoint.getDouble(0L) > 0.5) 1.0 else 0.0
-            predicts = predicts :+ predict
-            actuals = actuals :+ nextTestPointLabels.getDouble(0L)
-          }
-
-        }
-        if(regression){
-          PlotUtil.plot(predicts, actuals, s"Test Run", i)
-        }else{
-          var right = 0
-          for ((a, b) <- predicts zip actuals) {
-            if (a == b) {
-              right += 1
-            }
-          }
-          println("精准度为：" + right.toDouble / predicts.length)
-        }
-
-        if(regression)
-          net.save(new File(basePath.getAbsolutePath+"/regression_model/"+i))
-        else
-          net.save(new File(basePath.getAbsolutePath+"/classify_model/"+i))
-        testData.reset()
-        trainData.reset()
-      }
+        test_visualization(trainData, net, normalizer, i)
+        test_visualization(testData, net, normalizer, i)
         net.rnnClearPreviousState()
+      }
     }
   }
-  def test(Data:SequenceRecordReaderDataSetIterator, net: MultiLayerNetwork, normalizer:NormalizerStandardize)={
+  def test_visualization(Data:SequenceRecordReaderDataSetIterator, net: MultiLayerNetwork, normalizer:NormalizerStandardize, Epoch: Int)={
     var predicts: Array[Double] = Array()
     var actuals: Array[Double] = Array()
 
     while (Data.hasNext) {
       val nextTestPoint = Data.next
       val nextTestPointFeatures = nextTestPoint.getFeatures
-      val predictionNextTestPoint = net.output(nextTestPointFeatures)
+      val predictionNextTestPoint = net.output(nextTestPointFeatures, false)
 
       val nextTestPointLabels = nextTestPoint.getLabels
       if (regression) {
         normalizer.revert(nextTestPoint) // revert the normalization of this test point
         normalizer.revertLabels(predictionNextTestPoint)
-
-        predicts = predicts :+ predictionNextTestPoint.getDouble(0L)
-        actuals = actuals :+ nextTestPointLabels.getDouble(0L)
+        for(i <- 0L to predictionNextTestPoint.length() - 1){
+          predicts = predicts :+ predictionNextTestPoint.getDouble(i)
+          actuals = actuals :+ nextTestPointLabels.getDouble(i)
+        }
       } else {
-        val predict = if (predictionNextTestPoint.getDouble(0L) > 0.5) 1.0 else 0.0
-        predicts = predicts :+ predict
-        actuals = actuals :+ nextTestPointLabels.getDouble(0L)
+        for (i <- 1L to predictionNextTestPoint.length()) {
+          if(i %2 != 0){
+            val predict = if (predictionNextTestPoint.getDouble(i - 1) > 0.5) 1.0 else 0.0
+            predicts = predicts :+ predict
+            actuals = actuals :+ nextTestPointLabels.getDouble(i - 1)
+          }
+        }
       }
     }
     if (regression) {
-      PlotUtil.plot(predicts, actuals, s"Test Run", i)
+      PlotUtil.plot(predicts, actuals, s"Test Run", Epoch)
     } else {
       var right = 0
       for ((a, b) <- predicts zip actuals) {
